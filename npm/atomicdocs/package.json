@@ -1,0 +1,20 @@
+{
+  "name": "atomicdocs",
+  "version": "1.0.0",
+  "description": "Auto-generated API documentation for Express.js",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "files": [
+    "index.js",
+    "install.js"
+  ],
+  "keywords": ["express", "swagger", "documentation", "api", "openapi"],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/atomicdocs"
+  }
+}
