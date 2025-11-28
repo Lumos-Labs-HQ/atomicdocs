@@ -33,7 +33,7 @@ jobs:
       - name: Update atomicdocs package.json version
         run: |
           cd npm/atomicdocs
-          npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
+          npm pkg set version=${{ steps.version.outputs.VERSION }}
       
       - name: Publish atomicdocs to NPM
         working-directory: ./npm/atomicdocs
