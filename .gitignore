@@ -4,4 +4,4 @@ node_modules/
 dist/
 build/
 *.exe
-atomicdocs
+/atomicdocs

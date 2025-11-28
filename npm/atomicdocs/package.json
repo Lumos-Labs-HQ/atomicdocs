@@ -1,6 +1,6 @@
 {
   "name": "atomicdocs",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Auto-generated API documentation for Express.js and Hono",
   "main": "index.js",
   "types": "index.d.ts",
