@@ -14,8 +14,16 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
+      - name: Get tag name
+        id: get_tag
+        run: |
+          TAG=$(echo ${{ github.event.workflow_run.head_branch }} | grep -oP 'v\d+\.\d+\.\d+' || echo "v1.0.0")
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG"
+      
       - uses: actions/checkout@v4
         with:
+          ref: ${{ steps.get_tag.outputs.TAG }}
           fetch-depth: 0
       
       - name: Setup Node
@@ -24,12 +32,17 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
       
-      - name: Get version from tag
+      - name: Get version
         id: get_version
         run: |
-          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          VERSION=$(echo ${{ steps.get_tag.outputs.TAG }} | sed 's/^v//')
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
+      
+      - name: Verify files exist
+        run: |
+          ls -la npm/atomicdocs/
+          ls -la npm/atomicdocs-hono/
       
       - name: Update atomicdocs version
         working-directory: npm/atomicdocs
