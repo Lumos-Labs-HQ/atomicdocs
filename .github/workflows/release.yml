@@ -1,36 +1,15 @@
-name: Build and Release Binaries
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Binaries
+  release:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: windows
-            goarch: amd64
-            output: atomicdocs-win-x64.exe
-          - goos: windows
-            goarch: arm64
-            output: atomicdocs-win-arm64.exe
-          - goos: darwin
-            goarch: amd64
-            output: atomicdocs-darwin-x64
-          - goos: darwin
-            goarch: arm64
-            output: atomicdocs-darwin-arm64
-          - goos: linux
-            goarch: amd64
-            output: atomicdocs-linux-x64
-          - goos: linux
-            goarch: arm64
-            output: atomicdocs-linux-arm64
+    permissions:
+      contents: write
     
     steps:
       - uses: actions/checkout@v4
@@ -40,50 +19,31 @@ jobs:
         with:
           go-version: '1.22'
       
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Build binaries
         run: |
-          go build -ldflags="-s -w" -o ${{ matrix.output }} cmd/server/main.go
+          mkdir -p binaries
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o binaries/atomicdocs-win-x64.exe cmd/server/main.go
+          GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o binaries/atomicdocs-win-arm64.exe cmd/server/main.go
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o binaries/atomicdocs-darwin-x64 cmd/server/main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o binaries/atomicdocs-darwin-arm64 cmd/server/main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o binaries/atomicdocs-linux-x64 cmd/server/main.go
+          GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o binaries/atomicdocs-linux-arm64 cmd/server/main.go
       
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output }}
-          path: ${{ matrix.output }}
-          retention-days: 1
-
-  release:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries/
-      
-      - name: Move binaries to root
-        run: |
-          mkdir -p release-binaries
-          find binaries -type f -name "atomicdocs-*" -exec mv {} release-binaries/ \;
-          ls -lh release-binaries/
-      
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            release-binaries/*
-            RELEASE.md
-          body_path: RELEASE.md
-          draft: false
-          prerelease: false
+          files: binaries/*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Verify binaries uploaded
+        run: |
+          echo "Release created. Binaries:"
+          ls -la binaries/
+          echo ""
+          echo "npm-publish workflow will run automatically after this completes successfully"

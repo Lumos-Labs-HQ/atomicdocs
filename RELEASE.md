@@ -7,9 +7,11 @@ AtomicDocs uses GitHub Actions to automatically build cross-platform binaries an
 ## Architecture
 
 ```
-User installs npm package
+User installs npm package (npm install atomicdocs)
     ↓
-Package includes pre-built Go binaries for all platforms
+postinstall script downloads binary from GitHub Release
+    ↓
+Binary saved to node_modules/atomicdocs/bin/
     ↓
 JavaScript detects user's OS/architecture
     ↓
@@ -62,25 +64,23 @@ Swagger UI served at /docs
    - `atomicdocs-linux-x64`
    - `atomicdocs-linux-arm64`
 4. Strips debug symbols (`-ldflags="-s -w"`) for smaller size
-5. Uploads binaries as artifacts
-6. Packages everything into `npm/atomicdocs/bin/`
+5. Creates GitHub Release and uploads binaries as assets
 
-**Purpose:** Build production-ready binaries for all platforms
+**Purpose:** Build production-ready binaries and create GitHub Release
 
 ---
 
 ### 3. NPM Publish Workflow (`npm-publish.yml`)
 
-**Triggers:** After `release.yml` completes successfully
+**Triggers:** After `release.yml` completes successfully (via `workflow_run`)
 
 **What it does:**
-1. Downloads all 6 binaries from previous workflow
-2. Verifies all binaries exist
-3. Updates package version from git tag
+1. Waits for Release workflow to complete successfully
+2. Gets version from git tag
+3. Updates package version
 4. Publishes `atomicdocs` package to NPM
-5. Publishes `atomicdocs-hono` package to NPM
 
-**Purpose:** Distribute packages to NPM registry
+**Purpose:** Distribute package to NPM registry
 
 ---
 
@@ -89,11 +89,8 @@ Swagger UI served at /docs
 ### Step 1: Update Version
 
 ```bash
-# Update version in package.json files
+# Update version in package.json
 cd npm/atomicdocs
-npm version 1.0.0 --no-git-tag-version
-
-cd ../atomicdocs-hono
 npm version 1.0.0 --no-git-tag-version
 ```
 
@@ -126,7 +123,6 @@ git push origin v1.0.0
 
 ```bash
 npm view atomicdocs version
-npm view atomicdocs-hono version
 ```
 
 ---
@@ -143,32 +139,16 @@ Add these secrets in GitHub repo settings:
 
 ## Package Structure
 
-### atomicdocs (Main Package)
+### atomicdocs (Main Package - supports Express & Hono)
 
 ```
 atomicdocs/
-├── index.js              # Express middleware
-├── package.json
-└── bin/
-    ├── atomicdocs-win-x64.exe
-    ├── atomicdocs-win-arm64.exe
-    ├── atomicdocs-darwin-x64
-    ├── atomicdocs-darwin-arm64
-    ├── atomicdocs-linux-x64
-    └── atomicdocs-linux-arm64
-```
-
-**Size:** ~50MB (all binaries included)
-
-### atomicdocs-hono (Hono Package)
-
-```
-atomicdocs-hono/
-├── index.mjs             # Hono middleware (ES module)
+├── index.js              # Auto-detects Express/Hono
+├── install.js            # Downloads binary from GitHub Release
 └── package.json
 ```
 
-**Size:** ~5KB (depends on atomicdocs for binaries)
+**Note:** Binaries are downloaded from GitHub Releases at install time, not bundled in the npm package.
 
 ---
 
@@ -188,15 +168,15 @@ app.use(atomicdocs());
 ### Hono
 
 ```bash
-npm install atomicdocs atomicdocs-hono
+npm install atomicdocs
 ```
 
 ```typescript
-import { atomicDocs } from 'atomicdocs-hono';
-app.use('*', atomicDocs(app, 3000));
+import atomicdocs from 'atomicdocs';
+app.use('*', atomicdocs(app, 3000));
 ```
 
-**No Go installation required!** ✅
+**No Go installation required!** ✅ Binary is downloaded automatically at install time.
 
 ---
 
@@ -204,9 +184,22 @@ app.use('*', atomicDocs(app, 3000));
 
 ### Binary not found error
 
-**Cause:** Platform not supported or binary missing
+**Cause:** GitHub Release doesn't exist or binaries weren't uploaded
 
-**Fix:** Check `process.platform` and `process.arch` match supported platforms
+**Fix:** 
+1. Check if the GitHub Release exists at `https://github.com/Lumos-Labs-HQ/atomicdocs/releases/tag/v{VERSION}`
+2. Verify the 6 binary files are attached to the release
+3. Make sure the `release.yml` workflow completed successfully
+4. If binaries are missing, re-run the Release workflow or manually upload them
+
+### 404 when downloading binary
+
+**Cause:** Version mismatch between NPM package and GitHub Release
+
+**Fix:**
+1. The installed NPM version must have a matching GitHub Release with binaries
+2. Check the version in `node_modules/atomicdocs/package.json`
+3. Verify that release exists: `https://github.com/Lumos-Labs-HQ/atomicdocs/releases/tag/v{VERSION}`
 
 ### Permission denied error
 

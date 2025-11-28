@@ -1,16 +1,18 @@
 {
   "name": "atomicdocs",
-  "version": "1.0.1",
-  "description": "Auto-generated API documentation for Express.js",
+  "version": "1.0.2",
+  "description": "Auto-generated API documentation for Express.js and Hono",
   "main": "index.js",
   "scripts": {
-    "postinstall": "node install.js"
+    "postinstall": "node install.js || echo 'AtomicDocs postinstall failed - you may need to run it manually'"
   },
   "files": [
     "index.js",
     "install.js"
   ],
-  "keywords": ["express", "swagger", "documentation", "api", "openapi"],
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"],
+  "keywords": ["express", "hono", "swagger", "documentation", "api", "openapi"],
   "author": "",
   "license": "MIT",
   "repository": {

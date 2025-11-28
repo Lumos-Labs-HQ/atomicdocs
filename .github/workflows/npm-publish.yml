@@ -1,60 +1,42 @@
-name: Publish to NPM
+name: NPM Release
 
 on:
-  push:
-    tags:
-      - 'v*'
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
 
 jobs:
   publish:
-    name: Publish to NPM
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
       
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: 'https://registry.npmjs.org/'
       
-      - name: Get version
-        id: get_version
+      - name: Get version from tag
+        id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          TAG=$(git describe --tags --abbrev=0)
+          VERSION=${TAG#v}
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
+          echo "Publishing version: $VERSION"
       
-      - name: Update atomicdocs version
-        working-directory: npm/atomicdocs
+      - name: Update atomicdocs package.json version
         run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          if [ "$CURRENT" != "${{ steps.get_version.outputs.VERSION }}" ]; then
-            npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
-          else
-            echo "Version already correct: $CURRENT"
-          fi
+          cd npm/atomicdocs
+          npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
       
       - name: Publish atomicdocs to NPM
-        working-directory: npm/atomicdocs
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      
-      - name: Update atomicdocs-hono version
-        working-directory: npm/atomicdocs-hono
-        run: |
-          CURRENT=$(node -p "require('./package.json').version")
-          if [ "$CURRENT" != "${{ steps.get_version.outputs.VERSION }}" ]; then
-            npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
-          else
-            echo "Version already correct: $CURRENT"
-          fi
-      
-      - name: Publish atomicdocs-hono to NPM
-        working-directory: npm/atomicdocs-hono
+        working-directory: ./npm/atomicdocs
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

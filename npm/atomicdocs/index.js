@@ -49,7 +49,11 @@ function startGoServer() {
   setTimeout(() => { serverReady = true; }, 500);
 }
 
-function extractRoutes(app) {
+function isHono(app) {
+  return app && app.routes && Array.isArray(app.routes);
+}
+
+function extractExpressRoutes(app) {
   const routes = [];
   
   app._router.stack.forEach(layer => {
@@ -71,6 +75,14 @@ function extractRoutes(app) {
   return routes.filter(r => !r.path.startsWith('/docs'));
 }
 
+function extractHonoRoutes(app) {
+  return app.routes.map(route => ({
+    method: route.method.toUpperCase(),
+    path: route.path,
+    handler: route.handler ? route.handler.toString() : ''
+  })).filter(r => !r.path.startsWith('/docs'));
+}
+
 function registerRoutes(routes, port) {
   const data = JSON.stringify({ routes, port });
   const req = http.request({
@@ -89,7 +101,8 @@ function registerRoutes(routes, port) {
   req.end();
 }
 
-module.exports = function() {
+// Express middleware
+function expressMiddleware() {
   startGoServer();
   
   return function(req, res, next) {
@@ -113,14 +126,62 @@ module.exports = function() {
     
     next();
   };
+}
+
+// Hono middleware
+function honoMiddleware(app, port) {
+  startGoServer();
+  
+  setTimeout(() => {
+    if (!serverReady) return;
+    const routes = extractHonoRoutes(app);
+    registerRoutes(routes, port);
+    console.log(`✓ Registered ${routes.length} routes with AtomicDocs`);
+  }, 1000);
+  
+  return async (c, next) => {
+    if (c.req.path === '/docs' || c.req.path === '/docs/json') {
+      return new Promise((resolve) => {
+        http.get({
+          hostname: 'localhost',
+          port: 6174,
+          path: c.req.path,
+          headers: { 'X-App-Port': port.toString() }
+        }, (res) => {
+          let body = '';
+          res.on('data', chunk => body += chunk);
+          res.on('end', () => {
+            const contentType = res.headers['content-type'] || 'text/html';
+            resolve(new Response(body, {
+              status: res.statusCode,
+              headers: { 'Content-Type': contentType }
+            }));
+          });
+        }).on('error', () => {
+          resolve(c.text('AtomicDocs unavailable', 503));
+        });
+      });
+    }
+    
+    await next();
+  };
+}
+
+// Auto-detect framework
+module.exports = function(app, port) {
+  if (isHono(app)) {
+    return honoMiddleware(app, port);
+  }
+  return expressMiddleware();
 };
 
+// Express manual registration
 module.exports.register = function(app, port) {
   if (!serverReady) {
     setTimeout(() => module.exports.register(app, port), 100);
     return;
   }
-  const routes = extractRoutes(app);
+  const routes = extractExpressRoutes(app);
   registerRoutes(routes, port);
   console.log(`✓ Registered ${routes.length} routes with AtomicDocs`);
 };

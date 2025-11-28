@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
-import { atomicDocs } from '../../npm/atomicdocs-hono/index.mjs';
+import atomicdocs from '../../npm/atomicdocs/index.js';
 
 const app = new Hono();
 
 const PORT = 8080;
-app.use('*', atomicDocs(app, PORT));
+// atomicdocs auto-detects Hono and returns the appropriate middleware
+app.use('*', atomicdocs(app, PORT));
 
 // In-memory data
 let users = [
