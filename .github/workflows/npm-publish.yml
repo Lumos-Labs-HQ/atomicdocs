@@ -27,15 +27,15 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
       
-      - name: Verify files exist
-        run: |
-          ls -la npm/atomicdocs/
-          ls -la npm/atomicdocs-hono/
-      
       - name: Update atomicdocs version
         working-directory: npm/atomicdocs
         run: |
-          npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+            npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          else
+            echo "Version already correct: $CURRENT"
+          fi
       
       - name: Publish atomicdocs to NPM
         working-directory: npm/atomicdocs
@@ -46,7 +46,12 @@ jobs:
       - name: Update atomicdocs-hono version
         working-directory: npm/atomicdocs-hono
         run: |
-          npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" != "${{ steps.get_version.outputs.VERSION }}" ]; then
+            npm version ${{ steps.get_version.outputs.VERSION }} --no-git-tag-version
+          else
+            echo "Version already correct: $CURRENT"
+          fi
       
       - name: Publish atomicdocs-hono to NPM
         working-directory: npm/atomicdocs-hono

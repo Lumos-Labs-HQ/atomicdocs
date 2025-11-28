@@ -2,7 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const REPO = 'yourusername/atomicdocs';
+const REPO = 'Lumos-Labs-HQ/atomicdocs';
 const VERSION = require('./package.json').version;
 
 function getBinaryName() {
