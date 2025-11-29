@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"github.com/valyala/fasthttp"
 	"github.com/yourusername/atomicdocs/internal/openapi"
 	"github.com/yourusername/atomicdocs/internal/parser"
@@ -14,8 +16,9 @@ type Handler struct {
 }
 
 type RegistrationPayload struct {
-	Routes []types.RouteInfo `json:"routes"`
-	Port   int               `json:"port"`
+	Routes      []types.RouteInfo     `json:"routes"`
+	Port        int                   `json:"port"`
+	SchemaFiles map[string]string     `json:"schemaFiles"`
 }
 
 func NewHandler(reg *registry.Registry) *Handler {
@@ -39,9 +42,26 @@ func (h *Handler) RegisterRoutes(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	
+	// Debug: write to file
+	f, _ := os.Create("/tmp/atomicdocs_debug.txt")
+	if f != nil {
+		f.WriteString(fmt.Sprintf("Routes: %d\n", len(payload.Routes)))
+		f.WriteString(fmt.Sprintf("Schema files: %d\n", len(payload.SchemaFiles)))
+		for path := range payload.SchemaFiles {
+			f.WriteString(fmt.Sprintf("  - %s\n", path))
+		}
+		if len(payload.Routes) > 0 {
+			f.WriteString(fmt.Sprintf("\nFirst route imports: %d\n", len(payload.Routes[0].Imports)))
+			for _, imp := range payload.Routes[0].Imports {
+				f.WriteString(fmt.Sprintf("  - %s from %s\n", imp.Name, imp.From))
+			}
+		}
+		f.Close()
+	}
+	
 	analyzedRoutes := make([]types.RouteInfo, len(payload.Routes))
 	for i, route := range payload.Routes {
-		analyzedRoutes[i] = parser.AnalyzeRoute(route)
+		analyzedRoutes[i] = parser.AnalyzeRoute(route, payload.SchemaFiles)
 	}
 	
 	h.registry.RegisterApp(payload.Port, analyzedRoutes)

@@ -4,12 +4,19 @@ type RouteInfo struct {
 	Method      string              `json:"method"`
 	Path        string              `json:"path"`
 	Handler     string              `json:"handler"`
+	FilePath    string              `json:"filePath,omitempty"`
+	Imports     []Import            `json:"imports,omitempty"`
 	Summary     string              `json:"summary,omitempty"`
 	Description string              `json:"description,omitempty"`
 	Tags        []string            `json:"tags,omitempty"`
 	Parameters  []Parameter         `json:"parameters,omitempty"`
 	RequestBody *RequestBody        `json:"requestBody,omitempty"`
 	Responses   map[string]Response `json:"responses,omitempty"`
+}
+
+type Import struct {
+	Name string `json:"name"`
+	From string `json:"from"`
 }
 
 type Parameter struct {

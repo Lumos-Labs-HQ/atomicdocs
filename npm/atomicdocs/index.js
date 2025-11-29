@@ -55,28 +55,125 @@ function isHono(app) {
 
 function extractExpressRoutes(app) {
   const routes = [];
+  const fs = require('fs');
+  const path = require('path');
+  
+  function getFilePath(handler) {
+    if (!handler) return null;
+    
+    try {
+      // Get the source location from the function
+      const funcStr = handler.toString();
+      const lines = funcStr.split('\n');
+      
+      // Try to find file path from function's source
+      const oldPrepare = Error.prepareStackTrace;
+      Error.prepareStackTrace = (_, stack) => stack;
+      const stack = new Error().stack;
+      Error.prepareStackTrace = oldPrepare;
+      
+      // Look through call sites for .ts or .js files (not node_modules)
+      for (let i = 0; i < stack.length; i++) {
+        const fileName = stack[i].getFileName();
+        if (fileName && 
+            (fileName.endsWith('.ts') || fileName.endsWith('.js')) &&
+            !fileName.includes('node_modules') &&
+            !fileName.includes('atomicdocs')) {
+          return fileName;
+        }
+      }
+      
+      // Fallback: try to parse from stack string
+      const err = new Error();
+      const stackLines = err.stack.split('\n');
+      for (let line of stackLines) {
+        const match = line.match(/\((.+\.(ts|js)):(\d+):(\d+)\)/);
+        if (match && !match[1].includes('node_modules') && !match[1].includes('atomicdocs')) {
+          return match[1];
+        }
+      }
+    } catch (e) {
+      console.error('[AtomicDocs] Error getting file path:', e.message);
+    }
+    return null;
+  }
+  
+  function extractImports(filePath) {
+    if (!filePath || !fs.existsSync(filePath)) return [];
+    
+    try {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const imports = [];
+      
+      // Match: import { X, Y } from './file'
+      const importRegex = /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
+      let match;
+      while ((match = importRegex.exec(content)) !== null) {
+        const names = match[1].split(',').map(n => n.trim());
+        const from = match[2];
+        names.forEach(name => {
+          imports.push({ name, from });
+        });
+      }
+      
+      return imports;
+    } catch (e) {
+      console.error(`[AtomicDocs] Error reading file ${filePath}:`, e.message);
+      return [];
+    }
+  }
   
   function extractFromStack(stack, basePath = '') {
     stack.forEach(layer => {
       if (layer.route) {
         const handler = layer.route.stack[0]?.handle;
+        const handlerCode = handler ? handler.toString() : '';
+        
+        // Detect controller file from route path
+        let filePath = null;
+        const routePath = basePath + layer.route.path;
+        const cwd = process.cwd();
+        
+        // Try to find controller file based on route
+        const possiblePaths = [
+          path.join(cwd, 'src/controllers/auth.controller.ts'),
+          path.join(cwd, 'src/controllers/auth.controller.js'),
+          path.join(cwd, 'src/controllers/user.controller.ts'),
+          path.join(cwd, 'src/controllers/user.controller.js'),
+          path.join(cwd, 'src/controllers/post.controller.ts'),
+          path.join(cwd, 'src/controllers/post.controller.js'),
+        ];
+        
+        // Match route to controller
+        if (routePath.includes('/auth')) {
+          filePath = possiblePaths.find(p => p.includes('auth') && fs.existsSync(p));
+        } else if (routePath.includes('/user')) {
+          filePath = possiblePaths.find(p => p.includes('user') && fs.existsSync(p));
+        } else if (routePath.includes('/post')) {
+          filePath = possiblePaths.find(p => p.includes('post') && fs.existsSync(p));
+        }
+        
+        const imports = filePath ? extractImports(filePath) : [];
+        
         Object.keys(layer.route.methods).forEach(method => {
           if (layer.route.methods[method]) {
             routes.push({
               method: method.toUpperCase(),
               path: basePath + layer.route.path,
-              handler: handler ? handler.toString() : ''
+              handler: handlerCode,
+              filePath: filePath || 'unknown',
+              imports: imports
             });
           }
         });
       } else if (layer.name === 'router' && layer.handle.stack) {
-        const path = layer.regexp.source
+        const routePath = layer.regexp.source
           .replace('\\/?', '')
           .replace('(?=\\/|$)', '')
           .replace(/\\\//g, '/')
           .replace(/\^/g, '')
           .replace(/\$/g, '');
-        extractFromStack(layer.handle.stack, path);
+        extractFromStack(layer.handle.stack, routePath);
       }
     });
   }
@@ -94,7 +191,49 @@ function extractHonoRoutes(app) {
 }
 
 function registerRoutes(routes, port) {
-  const data = JSON.stringify({ routes, port });
+  const fs = require('fs');
+  const path = require('path');
+  const schemaFiles = {};
+  
+  console.log('[AtomicDocs] Collecting schema files...');
+  
+  // Collect all schema files
+  routes.forEach(route => {
+    if (route.imports && route.filePath) {
+      route.imports.forEach(imp => {
+        const dir = path.dirname(route.filePath);
+        let resolved = path.resolve(dir, imp.from);
+        
+        // Try extensions
+        const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+        for (let ext of extensions) {
+          if (fs.existsSync(resolved + ext)) {
+            resolved = resolved + ext;
+            break;
+          }
+        }
+        
+        if (fs.existsSync(resolved) && !schemaFiles[resolved]) {
+          try {
+            const content = fs.readFileSync(resolved, 'utf-8');
+            schemaFiles[resolved] = content;
+            console.log(`  ✓ Read schema file: ${resolved} (${content.length} bytes)`);
+          } catch (e) {
+            console.error(`  ✗ Failed to read schema file: ${resolved}`);
+          }
+        }
+      });
+    }
+  });
+  
+  console.log(`[AtomicDocs] Sending ${Object.keys(schemaFiles).length} schema files to Go server`);
+  
+  const data = JSON.stringify({ 
+    routes, 
+    port,
+    schemaFiles 
+  });
+  
   const req = http.request({
     hostname: 'localhost',
     port: 6174,
@@ -102,11 +241,14 @@ function registerRoutes(routes, port) {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
-      'Content-Length': data.length
+      'Content-Length': Buffer.byteLength(data)
     }
   });
   
-  req.on('error', () => {});
+  req.on('error', (err) => {
+    console.error('Failed to register routes:', err.message);
+  });
+  
   req.write(data);
   req.end();
 }
@@ -192,6 +334,10 @@ module.exports.register = function(app, port) {
     return;
   }
   const routes = extractExpressRoutes(app);
+  console.log(`[AtomicDocs] Extracted ${routes.length} routes`);
+  routes.forEach(r => {
+    console.log(`  ${r.method} ${r.path} - File: ${r.filePath || 'unknown'}, Imports: ${r.imports?.length || 0}`);
+  });
   registerRoutes(routes, port);
   console.log(`✓ Registered ${routes.length} routes with AtomicDocs`);
 };
