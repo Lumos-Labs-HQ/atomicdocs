@@ -1,5 +1,5 @@
 const express = require('express');
-const atomicdocs = require('../../npm/atomicdocs');
+const atomicdocs = require('atomicdocs');
 
 const app = express();
 app.use(express.json());

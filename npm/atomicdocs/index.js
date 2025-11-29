@@ -56,22 +56,32 @@ function isHono(app) {
 function extractExpressRoutes(app) {
   const routes = [];
   
-  app._router.stack.forEach(layer => {
-    if (layer.route) {
-      const handler = layer.route.stack[0]?.handle;
-      
-      Object.keys(layer.route.methods).forEach(method => {
-        if (layer.route.methods[method]) {
-          routes.push({
-            method: method.toUpperCase(),
-            path: layer.route.path,
-            handler: handler ? handler.toString() : ''
-          });
-        }
-      });
-    }
-  });
+  function extractFromStack(stack, basePath = '') {
+    stack.forEach(layer => {
+      if (layer.route) {
+        const handler = layer.route.stack[0]?.handle;
+        Object.keys(layer.route.methods).forEach(method => {
+          if (layer.route.methods[method]) {
+            routes.push({
+              method: method.toUpperCase(),
+              path: basePath + layer.route.path,
+              handler: handler ? handler.toString() : ''
+            });
+          }
+        });
+      } else if (layer.name === 'router' && layer.handle.stack) {
+        const path = layer.regexp.source
+          .replace('\\/?', '')
+          .replace('(?=\\/|$)', '')
+          .replace(/\\\//g, '/')
+          .replace(/\^/g, '')
+          .replace(/\$/g, '');
+        extractFromStack(layer.handle.stack, path);
+      }
+    });
+  }
   
+  extractFromStack(app._router.stack);
   return routes.filter(r => !r.path.startsWith('/docs'));
 }
 
