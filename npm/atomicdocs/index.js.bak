@@ -43,6 +43,7 @@ function startGoServer() {
   });
   
   goServer.on('error', (err) => {
+    console.error('Failed to start AtomicDocs:', err.message);
   });
   
   setTimeout(() => { serverReady = true; }, 500);
@@ -92,6 +93,7 @@ function extractExpressRoutes(app) {
         }
       }
     } catch (e) {
+      console.error('[AtomicDocs] Error getting file path:', e.message);
     }
     return null;
   }
@@ -116,6 +118,7 @@ function extractExpressRoutes(app) {
       
       return imports;
     } catch (e) {
+      console.error(`[AtomicDocs] Error reading file ${filePath}:`, e.message);
       return [];
     }
   }
@@ -192,6 +195,7 @@ function registerRoutes(routes, port) {
   const path = require('path');
   const schemaFiles = {};
   
+  console.log('[AtomicDocs] Collecting schema files...');
   
   // Collect all schema files
   routes.forEach(route => {
@@ -213,13 +217,16 @@ function registerRoutes(routes, port) {
           try {
             const content = fs.readFileSync(resolved, 'utf-8');
             schemaFiles[resolved] = content;
+            console.log(`  ✓ Read schema file: ${resolved} (${content.length} bytes)`);
           } catch (e) {
+            console.error(`  ✗ Failed to read schema file: ${resolved}`);
           }
         }
       });
     }
   });
   
+  console.log(`[AtomicDocs] Sending ${Object.keys(schemaFiles).length} schema files to Go server`);
   
   const data = JSON.stringify({ 
     routes, 
@@ -239,6 +246,7 @@ function registerRoutes(routes, port) {
   });
   
   req.on('error', (err) => {
+    console.error('Failed to register routes:', err.message);
   });
   
   req.write(data);
@@ -280,6 +288,7 @@ function honoMiddleware(app, port) {
     if (!serverReady) return;
     const routes = extractHonoRoutes(app);
     registerRoutes(routes, port);
+    console.log(`✓ Registered ${routes.length} routes with AtomicDocs`);
   }, 1000);
   
   return async (c, next) => {
@@ -325,7 +334,10 @@ module.exports.register = function(app, port) {
     return;
   }
   const routes = extractExpressRoutes(app);
+  console.log(`[AtomicDocs] Extracted ${routes.length} routes`);
   routes.forEach(r => {
+    console.log(`  ${r.method} ${r.path} - File: ${r.filePath || 'unknown'}, Imports: ${r.imports?.length || 0}`);
   });
   registerRoutes(routes, port);
+  console.log(`✓ Registered ${routes.length} routes with AtomicDocs`);
 };
