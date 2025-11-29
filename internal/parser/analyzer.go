@@ -97,8 +97,71 @@ func extractRequestBodyWithSchemas(route types.RouteInfo, schemaFiles map[string
 		}
 	}
 	
+	// Try to find inline schema in handler code
+	if inlineSchema := extractInlineSchema(route.Handler); inlineSchema != nil {
+		return inlineSchema
+	}
+	
 	// Fallback to regex extraction
 	return extractRequestBody(route.Handler)
+}
+
+func extractInlineSchema(handler string) *types.RequestBody {
+	// Pattern: const SchemaName = z.object({ ... })
+	// Then: SchemaName.parse(req.body) or SchemaName.safeParse(req.body)
+	
+	// Find schema definition in handler
+	schemaPattern := regexp.MustCompile(`(?s)const\s+(\w+)\s*=\s*z\.object\(\{(.+?)\}\)`)
+	matches := schemaPattern.FindStringSubmatch(handler)
+	
+	if len(matches) < 3 {
+		return nil
+	}
+	
+	schemaName := matches[1]
+	schemaBody := matches[2]
+	
+	// Check if this schema is used with req.body
+	usagePattern := regexp.MustCompile(schemaName + `\.(?:safe)?[Pp]arse\(req\.body\)`)
+	if !usagePattern.MatchString(handler) {
+		return nil
+	}
+	
+	// Parse fields from schema body
+	properties := make(map[string]types.Schema)
+	example := make(map[string]interface{})
+	
+	fieldPattern := regexp.MustCompile(`(\w+)\s*:\s*z\.(\w+)\(\)`)
+	fieldMatches := fieldPattern.FindAllStringSubmatch(schemaBody, -1)
+	
+	for _, match := range fieldMatches {
+		fieldName := match[1]
+		zodType := match[2]
+		
+		properties[fieldName] = types.Schema{
+			Type: zodTypeToOpenAPI(zodType),
+		}
+		
+		_, exampleValue := inferType(fieldName)
+		example[fieldName] = exampleValue
+	}
+	
+	if len(properties) == 0 {
+		return nil
+	}
+	
+	return &types.RequestBody{
+		Required: true,
+		Content: map[string]types.MediaTypeObject{
+			"application/json": {
+				Schema: types.Schema{
+					Type:       "object",
+					Properties: properties,
+					Example:    example,
+				},
+			},
+		},
+	}
 }
 
 func extractRequestBody(handler string) *types.RequestBody {
