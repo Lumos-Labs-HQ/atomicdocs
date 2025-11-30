@@ -1,7 +1,7 @@
 {
   "name": "atomicdocs",
   "version": "1.0.3",
-  "description": "Auto-generated API documentation for Express.js and Hono",
+  "description": "Zero-config, auto-generated API documentation for Express.js and Hono. Built with Go for extreme performance.",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
@@ -10,15 +10,33 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "install.js"
+    "install.js",
+    "README.md"
   ],
   "os": ["darwin", "linux", "win32"],
   "cpu": ["x64", "arm64"],
-  "keywords": ["express", "hono", "swagger", "documentation", "api", "openapi", "typescript"],
-  "author": "",
-  "license": "MIT",
+  "keywords": [
+    "express",
+    "hono",
+    "swagger",
+    "documentation",
+    "api",
+    "openapi",
+    "typescript",
+    "rest",
+    "api-docs",
+    "swagger-ui",
+    "auto-documentation",
+    "zero-config"
+  ],
+  "author": "Lumos Labs HQ",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/Lumos-Labs-HQ/atomicdocs"
+  },
+  "homepage": "https://github.com/Lumos-Labs-HQ/atomicdocs#readme",
+  "bugs": {
+    "url": "https://github.com/Lumos-Labs-HQ/atomicdocs/issues"
   }
 }

@@ -6,7 +6,7 @@
   <p>
     <a href="https://www.npmjs.com/package/atomicdocs"><img src="https://img.shields.io/npm/v/atomicdocs.svg?style=flat-square" alt="npm version" /></a>
     <a href="https://www.npmjs.com/package/atomicdocs"><img src="https://img.shields.io/npm/dm/atomicdocs.svg?style=flat-square" alt="npm downloads" /></a>
-    <a href="https://github.com/Lumos-Labs-HQ/atomicdocs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="license" /></a>
+    <a href="https://github.com/Lumos-Labs-HQ/atomicdocs/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square" alt="license" /></a>
   </p>
 </div>
 
@@ -385,7 +385,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📝 License
 
-MIT © [Lumos Labs HQ](https://github.com/Lumos-Labs-HQ)
+Apache 2.0 © [Lumos Labs HQ](https://github.com/Lumos-Labs-HQ)
 
 ---
 

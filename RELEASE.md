@@ -298,7 +298,7 @@ npm view atomicdocs version
 
 ## License
 
-MIT © [Lumos Labs HQ](https://github.com/Lumos-Labs-HQ)
+Apache 2.0 © [Lumos Labs HQ](https://github.com/Lumos-Labs-HQ)
 
 ---
 
