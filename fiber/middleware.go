@@ -56,6 +56,7 @@ type Response struct {
 
 type Schema struct {
 	Type       string            `json:"type,omitempty"`
+	Format     string            `json:"format,omitempty"`
 	Properties map[string]Schema `json:"properties,omitempty"`
 	Items      *Schema           `json:"items,omitempty"`
 }
@@ -172,9 +173,14 @@ func extractRoutes(app *fiber.App) []RouteInfo {
 func extractTags(path string) []string {
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) > 0 && parts[0] != "" {
-		return []string{strings.Title(parts[0])}
+		tag := parts[0]
+		// Capitalize first letter
+		if len(tag) > 0 {
+			tag = strings.ToUpper(tag[:1]) + tag[1:]
+		}
+		return []string{tag}
 	}
-	return []string{"Default"}
+	return []string{"API"}
 }
 
 func generateResponses(method, path string) map[string]Response {
@@ -245,4 +251,113 @@ func generateRequestBody(path string) *RequestBody {
 			"application/json": {Schema: schema},
 		},
 	}
+}
+
+func generateSummary(method, path string) string {
+	action := map[string]string{
+		"GET": "Get", "POST": "Create", "PUT": "Update", "DELETE": "Delete", "PATCH": "Update",
+	}[method]
+	
+	resource := "resource"
+	if strings.Contains(path, "user") { resource = "user" }
+	if strings.Contains(path, "product") { resource = "product" }
+	if strings.Contains(path, "auth") { resource = "authentication" }
+	
+	return fmt.Sprintf("%s %s", action, resource)
+}
+
+func generateDescription(path string) string {
+	if strings.Contains(path, "login") { return "Authenticate user and return JWT token" }
+	if strings.Contains(path, "register") { return "Register new user account" }
+	if strings.Contains(path, ":id") { return "Operation on specific resource by ID" }
+	return "API endpoint operation"
+}
+
+func generateDetailedResponses(method, path string) map[string]Response {
+	responses := map[string]Response{
+		"200": {
+			Description: "Success",
+			Content: map[string]MediaTypeObject{
+				"application/json": {Schema: getResponseSchema(path)},
+			},
+		},
+		"400": {Description: "Bad Request - Invalid input"},
+		"500": {Description: "Internal Server Error"},
+	}
+	
+	if method == "POST" {
+		responses["201"] = Response{
+			Description: "Created successfully",
+			Content: map[string]MediaTypeObject{
+				"application/json": {Schema: getResponseSchema(path)},
+			},
+		}
+	}
+	
+	if strings.Contains(path, ":") {
+		responses["404"] = Response{Description: "Resource not found"}
+	}
+	
+	return responses
+}
+
+func generateDetailedRequestBody(path string) *RequestBody {
+	return &RequestBody{
+		Required: true,
+		Content: map[string]MediaTypeObject{
+			"application/json": {Schema: getRequestSchema(path)},
+		},
+	}
+}
+
+func getRequestSchema(path string) Schema {
+	if strings.Contains(path, "user") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"name":  {Type: "string"},
+				"email": {Type: "string", Format: "email"},
+				"age":   {Type: "integer"},
+			},
+		}
+	}
+	if strings.Contains(path, "product") {
+		return Schema{
+			Type: "object", 
+			Properties: map[string]Schema{
+				"name":     {Type: "string"},
+				"price":    {Type: "number"},
+				"stock":    {Type: "integer"},
+				"category": {Type: "string"},
+			},
+		}
+	}
+	return Schema{Type: "object"}
+}
+
+func getResponseSchema(path string) Schema {
+	if strings.Contains(path, "user") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"id":    {Type: "integer"},
+				"name":  {Type: "string"},
+				"email": {Type: "string"},
+				"age":   {Type: "integer"},
+			},
+		}
+	}
+	if strings.Contains(path, "product") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"id":       {Type: "integer"},
+				"name":     {Type: "string"},
+				"price":    {Type: "number"},
+				"stock":    {Type: "integer"},
+				"category": {Type: "string"},
+			},
+		}
+	}
+	return Schema{Type: "object"}
 }
