@@ -151,15 +151,15 @@ func extractRoutes(app *fiber.App) []RouteInfo {
 			Method:      route.Method,
 			Path:        route.Path,
 			Handler:     handlerName,
-			Summary:     route.Method + " " + route.Path,
-			Description: fmt.Sprintf("Handler: %s", handlerName),
+			Summary:     generateSummary(route.Method, route.Path),
+			Description: generateDescription(route.Path),
 			Tags:        extractTags(route.Path),
 			Parameters:  extractParameters(route.Path),
-			Responses:   generateResponses(route.Method, route.Path),
+			Responses:   generateDetailedResponses(route.Method, route.Path),
 		}
 		
 		if route.Method == "POST" || route.Method == "PUT" || route.Method == "PATCH" {
-			info.RequestBody = generateRequestBody(route.Path)
+			info.RequestBody = generateDetailedRequestBody(route.Path)
 		}
 		
 		routes = append(routes, info)
@@ -237,7 +237,12 @@ func generateRequestBody(path string) *RequestBody {
 		},
 	}
 	
-	if strings.Contains(path, "product") {
+	if strings.Contains(path, "login") {
+		schema.Properties = map[string]Schema{
+			"username": {Type: "string"},
+			"password": {Type: "string"},
+		}
+	} else if strings.Contains(path, "product") {
 		schema.Properties = map[string]Schema{
 			"name":  {Type: "string"},
 			"price": {Type: "number"},
@@ -311,7 +316,16 @@ func generateDetailedRequestBody(path string) *RequestBody {
 }
 
 func getRequestSchema(path string) Schema {
-	if strings.Contains(path, "user") {
+	if strings.Contains(path, "login") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"username": {Type: "string"},
+				"password": {Type: "string"},
+			},
+		}
+	}
+	if strings.Contains(path, "register") || strings.Contains(path, "user") {
 		return Schema{
 			Type: "object",
 			Properties: map[string]Schema{
@@ -336,7 +350,55 @@ func getRequestSchema(path string) Schema {
 }
 
 func getResponseSchema(path string) Schema {
+	if strings.Contains(path, "login") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"token": {Type: "string"},
+				"user": {
+					Type: "object",
+					Properties: map[string]Schema{
+						"username": {Type: "string"},
+						"role":     {Type: "string"},
+					},
+				},
+			},
+		}
+	}
+	if strings.Contains(path, "register") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"message": {Type: "string"},
+				"userId":  {Type: "integer"},
+			},
+		}
+	}
+	if strings.Contains(path, "stats") {
+		return Schema{
+			Type: "object",
+			Properties: map[string]Schema{
+				"totalUsers":    {Type: "integer"},
+				"totalProducts": {Type: "integer"},
+			},
+		}
+	}
 	if strings.Contains(path, "user") {
+		// Check if it's a list endpoint
+		if !strings.Contains(path, ":") {
+			return Schema{
+				Type: "array",
+				Items: &Schema{
+					Type: "object",
+					Properties: map[string]Schema{
+						"id":    {Type: "integer"},
+						"name":  {Type: "string"},
+						"email": {Type: "string"},
+						"age":   {Type: "integer"},
+					},
+				},
+			}
+		}
 		return Schema{
 			Type: "object",
 			Properties: map[string]Schema{
@@ -348,6 +410,22 @@ func getResponseSchema(path string) Schema {
 		}
 	}
 	if strings.Contains(path, "product") {
+		// Check if it's a list endpoint
+		if !strings.Contains(path, ":") {
+			return Schema{
+				Type: "array",
+				Items: &Schema{
+					Type: "object",
+					Properties: map[string]Schema{
+						"id":       {Type: "integer"},
+						"name":     {Type: "string"},
+						"price":    {Type: "number"},
+						"stock":    {Type: "integer"},
+						"category": {Type: "string"},
+					},
+				},
+			}
+		}
 		return Schema{
 			Type: "object",
 			Properties: map[string]Schema{
