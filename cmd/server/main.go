@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/valyala/fasthttp"
 	"github.com/yourusername/atomicdocs/internal/middleware"
 	"github.com/yourusername/atomicdocs/internal/registry"
@@ -12,6 +13,7 @@ func main() {
 	
 	requestHandler := func(ctx *fasthttp.RequestCtx) {
 		path := string(ctx.Path())
+		fmt.Printf("Request: %s\n", path)
 		
 		switch path {
 		case "/api/register":
@@ -25,5 +27,6 @@ func main() {
 		}
 	}
 	
+	fmt.Println("AtomicDocs server starting on :6174")
 	fasthttp.ListenAndServe(":6174", requestHandler)
 }
